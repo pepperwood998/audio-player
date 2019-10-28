@@ -17,8 +17,8 @@ let time = {
     maxPartDur: 5,
     prevPartDur: 0,
 
-    reqCounterDur: 0,
-    reqCheckpoint: 0
+    updateIndicator: 0,
+    updateThreshold: 0
 };
 
 let state = {
@@ -27,6 +27,7 @@ let state = {
     isResume: false,
     onInitPrepareCalled: false,
 
+    firstBuffPast: false,
     newPlay: false,
     onResumeBefore: false,
     lock: false,
@@ -49,7 +50,6 @@ function constructAudioContext() {
     return ctx;
 }
 
-let temp = 0;
 function connect() {
     wsStream = new WebSocket('ws://localhost:8080/streaming');
 
@@ -66,13 +66,15 @@ function connect() {
         json.data = base64ToArrayBuffer(json.data);
         main.ctx
             .decodeAudioData(withWaveHeader(json.data, 2, 44100), buffer => {
-                console.log('decoded');
+                console.log('decoded --------------');
                 main.cache.push(buffer);
                 time.totalBuffDur += buffer.duration;
-                time.reqCheckpoint += buffer.duration;
+                time.updateIndicator += buffer.duration;
 
                 // prepare the audio before play it
                 if (json.lastBuffer) {
+                    time.updateThreshold = time.updateIndicator / 2;
+
                     if (!state.onInitPrepareCalled) {
                         state._('onInitPrepareCalled', true);
                         prepareAudio(time.prevPartDur);
@@ -94,14 +96,18 @@ function prepareAudio(prevDuration) {
         bufferPart.push(buffer);
 
         timeCounter += buffer.duration;
-        time.reqCounterDur += buffer.duration;
-        time.reqCheckpoint -= buffer.duration;
         if (timeCounter >= time.maxPartDur || !cache.length) {
             // save the state
-            let next = Math.floor(timeCounter - 1);
+            let next = 0;
+            if (!state.firstBuffPast) {
+                state._('pastFirstBuff', true);
+                next = Math.floor(timeCounter - 1);
+            } else {
+                next = Math.round(timeCounter);
+            }
             time.prevPartDur = next;
 
-            (function(part, timeout, nextDuration) {
+            (function(part, timeout, nextDuration, thisDuration) {
                 setTimeout(function() {
                     state.build('newPlay', true)
                         .build('onResumeBefore', false);
@@ -111,13 +117,20 @@ function prepareAudio(prevDuration) {
                         'time out',
                         timeout,
                         'next',
-                        nextDuration,
-                        'some', time.reqCounterDur,
-                        'two', time.reqCheckpoint
+                        nextDuration
                     );
+
                     asyncCall(function() {
-                        if (time.reqCounterDur > time.reqCheckpoint) {
-                            time.reqCounterDur = 0;
+                        time.updateIndicator -= thisDuration;
+                        console.log('full', time.updateIndicator, 'half', time.updateThreshold);
+
+                        if (time.updateIndicator < time.updateThreshold) {
+                            // clean up backup cache
+                            let dur = time.updateThreshold;
+                            while (main.backupCache.length && dur > 0) {
+                                dur -= main.backupCache.shift().duration;
+                            }
+
                             requestAudioChunk();
                         }
                     });
@@ -132,7 +145,7 @@ function prepareAudio(prevDuration) {
                     state.build('isResume', false)
                         .build('lock', false);
                 }, timeout * 1000);
-            })(bufferPart, prevDuration, next);
+            })(bufferPart, prevDuration, next, timeCounter);
 
             break;
         }
@@ -203,27 +216,3 @@ function playAudio(bufferArr) {
         time.buffInCtxDur += buffer.duration;
     }
 }
-
-/*
-    (function() {
-        let count = 0;
-        let backup = main.backupCache;
-        function pollForBufferRequest() {
-            if (!state.running) return;
-
-            count++;
-            console.log(count, time.totalBuffDur);
-            if (count >= audioController.reqThresholdDuration) {
-                let tempCount = 0;
-                while (Math.round(tempCount) < count && backup.length) {
-                    tempCount += backup.shift().duration;
-                }
-                count = 0;
-                // ... this is causing some problem ...
-                requestAudioChunk();
-            }
-        }
-
-        setInterval(pollForBufferRequest, 1000);
-    })();
-*/
