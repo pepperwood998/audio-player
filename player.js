@@ -11,14 +11,16 @@ let main = {
 };
 
 let time = {
-    initPoint: 0,
+    initPoint: 120,
     totalBuffDur: 0,
     buffInCtxDur: 0,
     maxPartDur: 5,
     prevPartDur: 0,
 
     updateIndicator: 0,
-    updateThreshold: 0
+    updateThreshold: 0,
+    newBuffPoint: 0,
+    pausePoint: 0
 };
 
 let state = {
@@ -97,15 +99,17 @@ function prepareAudio(prevDuration) {
 
         timeCounter += buffer.duration;
         if (timeCounter >= time.maxPartDur || !cache.length) {
-            // save the state
             let next = 0;
             if (!state.firstBuffPast) {
-                state._('pastFirstBuff', true);
-                next = Math.floor(timeCounter - 1);
+                state._('firstBuffPast', true);
+                next = timeCounter - 1;
             } else {
-                next = Math.round(timeCounter);
+                next = timeCounter;
             }
+
+            // save the time values
             time.prevPartDur = next;
+            time.newBuffPoint = Date.now();
 
             (function(part, timeout, nextDuration, thisDuration) {
                 setTimeout(function() {
@@ -122,7 +126,6 @@ function prepareAudio(prevDuration) {
 
                     asyncCall(function() {
                         time.updateIndicator -= thisDuration;
-                        console.log('full', time.updateIndicator, 'half', time.updateThreshold);
 
                         if (time.updateIndicator < time.updateThreshold) {
                             // clean up backup cache
@@ -165,6 +168,7 @@ function togglePlayAudio() {
         ctx.suspend().then(function() {
             state.build('running', false)
                 .build('newPlay', false);
+            time.pausePoint = Date.now();
 
             // console.log('paused');
         });
@@ -178,7 +182,10 @@ function togglePlayAudio() {
                 if (!state.onResumeBefore) {
                     state.build('onResumeBefore', true)
                         .build('isResume', true);
-                    prepareAudio(time.prevPartDur);
+                    prepareAudio(
+                        time.prevPartDur -
+                            (time.pausePoint - time.newBuffPoint) / 1000
+                    );
                 }
             } else {
                 state._('lock', true);
