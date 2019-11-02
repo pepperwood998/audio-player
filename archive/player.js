@@ -11,7 +11,7 @@ let main = {
 };
 
 let time = {
-    initPoint: 120,
+    initPoint: 0,
     totalBuffDur: 0,
     buffInCtxDur: 0,
     maxPartDur: 5,
@@ -99,6 +99,9 @@ function prepareAudio(prevDuration) {
 
         timeCounter += buffer.duration;
         if (timeCounter >= time.maxPartDur || !cache.length) {
+            // replace with different mechanism
+            // using a temp variable = 0
+            // change its value, and add it to the timeCounter
             let next = 0;
             if (!state.firstBuffPast) {
                 state._('firstBuffPast', true);
@@ -117,12 +120,7 @@ function prepareAudio(prevDuration) {
                         .build('onResumeBefore', false);
 
                     asyncCall(() => playAudio(part));
-                    console.log(
-                        'time out',
-                        timeout,
-                        'next',
-                        nextDuration
-                    );
+                    console.log('time out', timeout, 'next', nextDuration);
 
                     asyncCall(function() {
                         time.updateIndicator -= thisDuration;
@@ -197,10 +195,18 @@ function togglePlayAudio() {
     }
 }
 
+function skip() {
+    let skipPoint = $('#skip').val();
+
+    // close the audio context
+
+    // reset all states and time pointer
+}
+
 function requestAudioChunk() {
     let reqForm = {
         uuid: main.uuid,
-        timePoint: time.initPoint + Math.round(time.totalBuffDur)
+        timePoint: time.initPoint + time.totalBuffDur
     };
 
     wsStream.send(JSON.stringify(reqForm));

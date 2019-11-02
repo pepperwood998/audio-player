@@ -1,0 +1,24 @@
+.wrapper {
+    margin: 10px 0;
+}
+
+.bar {
+    height: 10px;
+    width: 350px;
+    background-color: aliceblue;
+    border: 5px solid;
+}
+
+.bar > div {
+    height: inherit;
+    float: left;
+}
+
+.backup-bar {
+    width: 20px;
+    background-color: khaki;
+}
+
+.cache-bar {
+    background-color: lightcoral;
+}

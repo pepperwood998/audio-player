@@ -5,6 +5,8 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta http-equiv="X-UA-Compatible" content="ie=edge" />
         <title>Document</title>
+
+        <link rel="stylesheet" type="text/css" href="style.css" />
     </head>
     <body>
         <div>
@@ -15,9 +17,31 @@
         <div>
             <button onclick="togglePlayAudio()">Play</button>
         </div>
+        <div class="wrapper">
+            <div class="bar">
+                <div class="backup-bar"></div>
+                <div class="cache-bar"></div>
+            </div>
+            <div class="duration">0:00</div>
+        </div>
+        <div>
+            <input type="text" id="skip" />
+            <button onclick="skip()">Skip</button>
+        </div>
 
-        <script src="util/general.js"></script>
-        <script src="util/wave-header.js"></script>
-        <script src="player.js"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+        <script src="lib/util/general.js"></script>
+        <script src="lib/util/wave-header.js"></script>
+        <script src="lib/AudioStream.js"></script>
+        <script>
+            let audioStream = new AudioStream('ws://localhost:8080/streaming');
+            function connect() {
+                audioStream.connect();
+            }
+
+            function togglePlayAudio() {
+                audioStream.togglePlayback();
+            }
+        </script>
     </body>
 </html>
